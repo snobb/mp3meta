@@ -14,6 +14,7 @@
 #define GETTAG(d, s)      memcpy((d), (s), sizeof(s))
 #define SETTAG(d, s)      if (s) {\
                               size_t sz = strlen(s);\
+                              memset((d), 0, sizeof(d));\
                               memcpy((d), (s), sizeof(d) > (sz) ?\
                               (sz) : sizeof(d));}
 #define ID3SZ             128
@@ -91,8 +92,8 @@ char *genre[] = {
 int main(int argc, char **argv)
 {
     FILE *mp3fp;
-    struct id3meta mp3meta;
     struct options opts = { 0, NULL, NULL, NULL, NULL, NULL, NULL, -1, 257 };
+    struct id3meta mp3meta;
 
     if (argc == 1)
         usage(argv[0]);
@@ -110,7 +111,7 @@ int main(int argc, char **argv)
     readbuf(mp3fp, &mp3meta, ID3SZ, -ID3SZ, SEEK_END);
     updatebuf(&mp3meta, &opts);
 
-    if (opts.flags & (WRITE | HASFILE))
+    if (opts.flags & WRITE && opts.flags & HASFILE)
         writebuf(mp3fp, &mp3meta, ID3SZ, -ID3SZ, SEEK_END);
 
     fclose(mp3fp);
@@ -213,11 +214,11 @@ void updatebuf(struct id3meta *mp3meta, const struct options *opts)
     SETTAG(mp3meta->year, opts->year);
     SETTAG(mp3meta->artist, opts->artist);
     SETTAG(mp3meta->comment.c, opts->comment);
-    if (opts->track > 0 && mp3meta->comment.czt.tr > 0) {
+    if (opts->track > 0) {
         mp3meta->comment.czt.zr = 0;
         mp3meta->comment.czt.tr = opts->track;
     }
-    if (opts->genre < 0xff) {
+    if (opts->genre <= 0xff) {
         mp3meta->genre = opts->genre;
     }
 }
