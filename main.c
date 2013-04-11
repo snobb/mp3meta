@@ -92,6 +92,7 @@ char *genre[] = {
 int main(int argc, char **argv)
 {
     FILE *mp3fp;
+    size_t offset = -ID3SZ;
     struct options opts = { 0, NULL, NULL, NULL, NULL, NULL, NULL, -1, 257 };
     struct id3meta mp3meta;
 
@@ -109,11 +110,17 @@ int main(int argc, char **argv)
         die("error: the file is not an MP3 file");
 
     readbuf(mp3fp, &mp3meta, ID3SZ, -ID3SZ, SEEK_END);
-    updatebuf(&mp3meta, &opts);
-
-    if (opts.flags & WRITE && opts.flags & HASFILE)
-        writebuf(mp3fp, &mp3meta, ID3SZ, -ID3SZ, SEEK_END);
-
+    if (opts.flags & WRITE && opts.flags & HASFILE) {
+        if (strncmp(mp3meta.header, "TAG", 3) != 0) {
+            memset(&mp3meta, 0, sizeof(mp3meta));
+            memcpy(mp3meta.header, "TAG", 3);
+            fseek(mp3fp, 0, SEEK_END);
+            fwrite("\0", 2, 1, mp3fp);
+            offset = 0;
+        }
+        updatebuf(&mp3meta, &opts);
+        writebuf(mp3fp, &mp3meta, ID3SZ, offset, SEEK_END);
+    }
     fclose(mp3fp);
 
     printid3v1(&mp3meta);
@@ -134,7 +141,8 @@ void read_args(int argc, char **argv, struct options *opts)
         arg = *argv;
         if (*arg == '-') {
             while (*++arg != '\0') {
-                /* TODO: add error checking in the arguments processing */
+                /* TODO: add error checking in the arguments processing,
+                 * even though it isn't much of a problem as it is */
                 switch(*arg) {
                     case 'h':
                         usage(prog); break;
@@ -142,6 +150,7 @@ void read_args(int argc, char **argv, struct options *opts)
                         list = genre;
                         for (int i = 0; *list != NULL; i++)
                             printf("%d: %s\n", i, *list++);
+                        exit(0);
                         break;
                     case 'w':
                         opts->flags |= WRITE; break;
@@ -240,15 +249,10 @@ void printid3v1(const struct id3meta *mp3meta)
 
     if (ID3VER(mp3meta) > 1) {
         printf("track: %d\n", mp3meta->comment.czt.tr);
-        GETTAG(str, mp3meta->comment.czt.c);
-        str[sizeof(mp3meta->comment.czt.c)] = '\0';
-        printf("comment: %s\n", str);
-    } else {
-        printf("comment: %s\n", GETTAG(str, mp3meta->comment.c));
     }
+    printf("comment: %s\n", GETTAG(str, mp3meta->comment.c));
 
-    printf("genre: %s(%u)\n", ID3TXTGENRE(mp3meta),
-           (unsigned char)mp3meta->genre);
+    printf("genre: %s(%u)\n", ID3TXTGENRE(mp3meta), mp3meta->genre);
 }
 
 /* ========================================================================= */
