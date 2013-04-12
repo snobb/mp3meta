@@ -8,7 +8,10 @@
 #include <stdbool.h>
 
 /* ========================================================================= */
-#define ID3VER(a)         ((a)->comment.czt.zr == 0) ? 1.1f : 1.0f
+#define ZR                28
+#define TR                29
+
+#define ID3VER(a)         ((a)->comment[ZR] == 0) ? 1.1f : 1.0f
 #define ID3TXTGENRE(a)    ((a)->genre >= 0 && ((a)->genre <= 125)) ?\
                                          genre[(int)(a)->genre] : "Unknown"
 #define GETTAG(d, s)      memcpy((d), (s), sizeof(s))
@@ -25,14 +28,7 @@ struct id3meta {
     char artist[30];
     char album[30];
     char year[4];
-    union {
-        struct {
-            char c[28];
-            char zr;
-            char tr;
-        } czt;
-        char c[30];
-    } comment;
+    char comment[30];
     unsigned char genre;
 };
 
@@ -133,8 +129,7 @@ void read_args(int argc, char **argv, struct options *opts)
 {
     char *arg, **list, *prog = *argv;
 
-    argc--;
-    if (argc == 0)
+    if (--argc == 0)
         usage(prog);
 
     while (*++argv != NULL) {
@@ -222,10 +217,10 @@ void updatebuf(struct id3meta *mp3meta, const struct options *opts)
     SETTAG(mp3meta->album, opts->album);
     SETTAG(mp3meta->year, opts->year);
     SETTAG(mp3meta->artist, opts->artist);
-    SETTAG(mp3meta->comment.c, opts->comment);
+    SETTAG(mp3meta->comment, opts->comment);
     if (opts->track > 0) {
-        mp3meta->comment.czt.zr = 0;
-        mp3meta->comment.czt.tr = opts->track;
+        mp3meta->comment[ZR] = 0;
+        mp3meta->comment[TR] = opts->track;
     }
     if (opts->genre <= 0xff) {
         mp3meta->genre = opts->genre;
@@ -248,10 +243,10 @@ void printid3v1(const struct id3meta *mp3meta)
     printf("year: %s\n", GETTAG(str, mp3meta->year));
 
     if (ID3VER(mp3meta) > 1) {
-        printf("track: %d\n", mp3meta->comment.czt.tr);
+        printf("track: %d\n", mp3meta->comment[TR]);
     }
-    printf("comment: %s\n", GETTAG(str, mp3meta->comment.c));
 
+    printf("comment: %s\n", GETTAG(str, mp3meta->comment));
     printf("genre: %s(%u)\n", ID3TXTGENRE(mp3meta), mp3meta->genre);
 }
 
