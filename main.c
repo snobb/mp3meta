@@ -243,7 +243,7 @@ void printid3v1(const struct id3meta *mp3meta)
     printf("year: %s\n", GETTAG(str, mp3meta->year));
 
     if (ID3VER(mp3meta) > 1) {
-        printf("track: %d\n", mp3meta->comment[TR]);
+        printf("track: %d\n", (unsigned char)mp3meta->comment[TR]);
     }
 
     printf("comment: %s\n", GETTAG(str, mp3meta->comment));
