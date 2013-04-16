@@ -6,6 +6,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <stdbool.h>
+#include <ctype.h>
 
 /* ========================================================================= */
 #define ZR                28
@@ -13,13 +14,18 @@
 
 #define ID3VER(a)         ((a)->comment[ZR] == 0) ? 1.1f : 1.0f
 #define ID3TXTGENRE(a)    ((a)->genre >= 0 && ((a)->genre <= 125)) ?\
-                                         genre[(int)(a)->genre] : "Unknown"
+                              genre[(int)(a)->genre] : "Unknown"
 #define GETTAG(d, s)      memcpy((d), (s), sizeof(s))
 #define SETTAG(d, s)      if (s) {\
                               size_t sz = strlen(s);\
                               memset((d), 0, sizeof(d));\
                               memcpy((d), (s), sizeof(d) > (sz) ?\
                               (sz) : sizeof(d));}
+#define GETINT(a)         if (*++argv && isdigit(**argv)) {\
+                                    (a) = atoi(*argv); }\
+                                    else { die("integer expected"); }
+#define GETSTR(a)         if (*++argv) { (a) = *argv; }\
+                                    else { die("value expected"); }
 #define ID3SZ             128
 
 struct id3meta {
@@ -97,13 +103,13 @@ int main(int argc, char **argv)
     read_args(argc, argv, &opts);
 
     if (!(opts.flags & HASFILE))
-        die("error: arguments error - no file");
+        die("arguments error - no file");
 
     if ((mp3fp = fopen(opts.fname, "r+")) == NULL)
-        die("error: cannot open the file %s", opts.fname);
+        die("cannot open the file %s", opts.fname);
 
     if (!is_mp3(mp3fp))
-        die("error: the file is not an MP3 file");
+        die("the file is not an MP3 file");
 
     readbuf(mp3fp, &mp3meta, ID3SZ, -ID3SZ, SEEK_END);
     if (opts.flags & WRITE && opts.flags & HASFILE) {
@@ -135,38 +141,24 @@ void read_args(int argc, char **argv, struct options *opts)
     while (*++argv != NULL) {
         arg = *argv;
         if (*arg == '-') {
-            while (*++arg != '\0') {
-                /* TODO: add error checking in the arguments processing,
-                 * even though it isn't much of a problem as it is */
-                switch(*arg) {
-                    case 'h':
-                        usage(prog); break;
-                    case 'l':
-                        list = genre;
-                        for (int i = 0; *list != NULL; i++)
-                            printf("%d: %s\n", i, *list++);
-                        exit(0);
-                        break;
-                    case 'w':
-                        opts->flags |= WRITE; break;
-                    case 'T':
-                        opts->title = *++argv; break;
-                    case 'a':
-                        opts->artist = *++argv; break;
-                    case 'b':
-                        opts->album = *++argv; break;
-                    case 'y':
-                        opts->year = *++argv; break;
-                    case 't':
-                        opts->track = atoi(*++argv); break;
-                    case 'c':
-                        opts->comment = *++argv; break;
-                    case 'g':
-                        opts->genre = atoi(*++argv); break;
-                    default:
-                        printf("error: unrecognized option \"-%c\"", *arg);
-                        usage(prog);
-                }
+            switch(*++arg) {
+                case 'h': usage(prog); break;
+                case 'l':
+                          list = genre;
+                          for (int i = 0; *list != NULL; i++)
+                              printf("%d: %s\n", i, *list++);
+                          exit(0);
+                          break;
+                case 'w': opts->flags |= WRITE; break;
+                case 'T': GETSTR(opts->title); break;
+                case 'a': GETSTR(opts->artist); break;
+                case 'b': GETSTR(opts->album); break;
+                case 'y': GETSTR(opts->year); break;
+                case 't': GETINT(opts->track); break;
+                case 'c': GETSTR(opts->comment); break;
+                case 'g': GETINT(opts->genre); break;
+                default: die("error: unrecognized option \"-%c\"",
+                             *arg);
             }
         } else {
             opts->flags |= HASFILE;
@@ -196,7 +188,7 @@ void *readbuf(FILE *fp, void *buf, size_t sz, long offset, int start)
     fseek(fp, offset, start);
 
     if (fread(buf, ID3SZ, 1, fp) != 1)
-        die("error: cannot read data");
+        die("cannot read data");
 
     return buf;
 }
@@ -206,12 +198,13 @@ void writebuf(FILE *fp, const void *buf, size_t sz, long offset, int start)
 {
     fseek(fp, offset, start);
     if (fwrite(buf, ID3SZ, 1, fp) != 1)
-        die("error: cannot write data");
+        die("cannot write data");
 }
 
 /* ========================================================================= */
 void updatebuf(struct id3meta *mp3meta, const struct options *opts)
 {
+    int track = mp3meta->comment[TR];
     SETTAG(mp3meta->title, opts->title);
     SETTAG(mp3meta->artist, opts->artist);
     SETTAG(mp3meta->album, opts->album);
@@ -221,7 +214,11 @@ void updatebuf(struct id3meta *mp3meta, const struct options *opts)
     if (opts->track > 0) {
         mp3meta->comment[ZR] = 0;
         mp3meta->comment[TR] = opts->track;
+    } else if (track > 0 && strlen(opts->comment) <= 28) {
+        mp3meta->comment[ZR] = 0;
+        mp3meta->comment[TR] = track;
     }
+
     if (opts->genre <= 0xff) {
         mp3meta->genre = opts->genre;
     }
@@ -232,7 +229,7 @@ void printid3v1(const struct id3meta *mp3meta)
 {
     char str[31] = { 0 };
     if (strncmp(mp3meta->header, "TAG", 3) != 0)
-        die("error: id3v1 tag isn't found");
+        die("id3v1 tag isn't found");
 
     printf("id3 version: %1.1f\n", ID3VER(mp3meta));
     printf("title: %s\n", GETTAG(str, mp3meta->title));
@@ -243,7 +240,7 @@ void printid3v1(const struct id3meta *mp3meta)
     printf("year: %s\n", GETTAG(str, mp3meta->year));
 
     if (ID3VER(mp3meta) > 1) {
-        printf("track: %d\n", (unsigned char)mp3meta->comment[TR]);
+        printf("track: %d\n", mp3meta->comment[TR]);
     }
 
     printf("comment: %s\n", GETTAG(str, mp3meta->comment));
@@ -255,6 +252,7 @@ void die(const char *fmt, ...)
 {
     va_list ap;
     va_start(ap, fmt);
+    fprintf(stderr, "error: ");
     vfprintf(stderr, fmt, ap);
     fputc('\n', stderr);
     va_end(ap);
