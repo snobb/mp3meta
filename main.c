@@ -143,8 +143,7 @@ void read_args(int argc, char **argv, struct options *opts)
         if (*arg == '-') {
             switch(*++arg) {
                 case 'h': usage(prog); break;
-                case 'l':
-                          list = genre;
+                case 'l': list = genre;
                           for (int i = 0; *list != NULL; i++)
                               printf("%d: %s\n", i, *list++);
                           exit(0);
@@ -262,7 +261,7 @@ void die(const char *fmt, ...)
 /* ========================================================================= */
 void usage(const char *prog)
 {
-    printf("Usage: %s [options] <mp3 file>", prog);
+    printf("Usage: %s [options] <mp3 file>\n", prog);
     puts("    -h      help\n"
          "    -l      list genres\n"
          "    -w      write changes - otherwise no changes\n"
