@@ -213,7 +213,7 @@ void updatebuf(struct id3meta *mp3meta, const struct options *opts)
     if (opts->track > 0) {
         mp3meta->comment[ZR] = 0;
         mp3meta->comment[TR] = opts->track;
-    } else if (track > 0 && strlen(opts->comment) <= 28) {
+    } else if (track > 0 && opts->comment && strlen(opts->comment) <= 28) {
         mp3meta->comment[ZR] = 0;
         mp3meta->comment[TR] = track;
     }
