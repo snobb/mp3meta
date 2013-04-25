@@ -53,11 +53,10 @@ struct options {
 };
 
 void read_args(int argc, char **argv, struct options *opts);
-bool is_mp3(FILE *fp);
 void *readbuf(FILE *fp, void *buf, size_t sz, long offset, int start);
 void writebuf(FILE *fp, const void *buf, size_t sz, long offset, int start);
 void updatebuf(struct id3meta *mp3meta, const struct options *opts);
-void printid3v1(const struct id3meta *mp3);
+void printid3v1(const char *name, const struct id3meta *mp3);
 void die(const char *fmt, ...);
 void usage(const char *prog);
 
@@ -108,9 +107,6 @@ int main(int argc, char **argv)
     if ((mp3fp = fopen(opts.fname, "r+")) == NULL)
         die("cannot open the file %s", opts.fname);
 
-    if (!is_mp3(mp3fp))
-        die("the file is not an MP3 file");
-
     readbuf(mp3fp, &mp3meta, ID3SZ, -ID3SZ, SEEK_END);
     if (opts.flags & WRITE && opts.flags & HASFILE) {
         if (strncmp(mp3meta.header, "TAG", 3) != 0) {
@@ -125,7 +121,7 @@ int main(int argc, char **argv)
     }
     fclose(mp3fp);
 
-    printid3v1(&mp3meta);
+    printid3v1(opts.fname, &mp3meta);
 
     return 0;
 }
@@ -164,21 +160,6 @@ void read_args(int argc, char **argv, struct options *opts)
             opts->fname = arg;
         }
     }
-}
-
-/* ========================================================================= */
-bool is_mp3(FILE *fp)
-{
-    char id[3];
-    bool is_mp3 = false;
-    rewind(fp);
-    if (fread(id, 3, 1, fp) == 0)
-        return false; /* false - not a valid mp3 file */
-
-    is_mp3 = (strncmp(id, "ID3", 3) == 0);
-    /* no need to rewind since we shall move the pointer anyway */
-    /* rewind(fp); */
-    return is_mp3;
 }
 
 /* ========================================================================= */
@@ -224,13 +205,13 @@ void updatebuf(struct id3meta *mp3meta, const struct options *opts)
 }
 
 /* ========================================================================= */
-void printid3v1(const struct id3meta *mp3meta)
+void printid3v1(const char *name, const struct id3meta *mp3meta)
 {
     char str[31] = { 0 };
     if (strncmp(mp3meta->header, "TAG", 3) != 0)
         die("id3v1 tag isn't found");
 
-    printf("id3 version: %1.1f\n", ID3VER(mp3meta));
+    printf("file: %s (id3 version: %1.1f)\n", name, ID3VER(mp3meta));
     printf("title: %s\n", GETTAG(str, mp3meta->title));
     printf("artist: %s\n", GETTAG(str, mp3meta->artist));
     printf("album: %s\n", GETTAG(str, mp3meta->album));

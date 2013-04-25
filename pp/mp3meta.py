@@ -56,7 +56,9 @@ class id3v1meta:
             "Duet", "Punk Rock", "Drum Solo", "A capella",
             "Euro-House", "Dance Hall" ]
         if infile:
-            self.read(infile)
+            try:
+                self.read(infile)
+            except: pass
 
     @property
     def genre(self):
@@ -75,7 +77,6 @@ class id3v1meta:
             exit(1)
         except ID3NotFoundError:
             print >> sys.stderr, "error: id3v1 tag was not found"
-            exit(1)
 
     def write(self, fname):
         """ write the id3v1 tag to the file """
@@ -89,8 +90,8 @@ class id3v1meta:
         """ read 128 bytes from the end of the file """
         try:
             with open(fname, "rb") as f:
-                f.seek(-128, 2)
-                buf = f.read(128)
+                    f.seek(-128, 2)
+                    buf = f.read(128)
         except IOError:
             print >> sys.stderr, ("error: cannot read from file {}"\
                     .format(fname))
@@ -100,7 +101,11 @@ class id3v1meta:
     def _writebuf(self, fname, buf):
         try:
             with open(fname, "rb+") as f:
-                f.seek(-128, 2)
+                if (f.read(3) == "ID3"):
+                    f.seek(-128, 2)
+                else:
+                    f.seek(0, 2)
+                    f.write(struct.pack("I", 0))
                 f.write(buf)
         except IOError:
             print >> sys.stderr, ("error: cannot write to file {}"\
@@ -117,9 +122,12 @@ class id3v1meta:
 
     def _parsebuf(self, buf): # throws ValueError, ID3NotFoundError
         """ parse the 128byte buffer """
-        tag = list(struct.unpack(self.__htmpl, buf))
-        if tag.pop(0) != "TAG":
-            raise ID3NotFoundError("ID3 not found")
+        try:
+            tag = list(struct.unpack(self.__htmpl, buf))
+        except struct.error:
+            self._packbuf()
+        if str(tag.pop(0)) != "TAG":
+            self._packbuf()
         self.tagexists = True
         self.title = tag.pop(0)
         self.artist = tag.pop(0)
