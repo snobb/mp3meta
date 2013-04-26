@@ -1,0 +1,42 @@
+.TH MP3META 1 mp3meta
+.SH NAME
+mp3meta \- editor for mp3 id3v1 tags
+.SH SYNOPSIS
+.B mp3meta
+.RB [OPTIONS]\ [FILES]
+.SH DESCRIPTION
+A simple mp3 id3v1 tag viewer/editor
+
+.SH OPTIONS
+.TP
+.B \-h
+help message
+.TP
+.B \-T\ <title>
+set track title (max. 30 characters)
+.TP
+.B \-a\ <artist>
+set artists (max. 30 characters)
+.TP
+.B \-b\ <album>
+set album (max. 30 characters)
+.TP
+.B \-y\ <year>
+set year. Eg. 1990 (max. 4 characters)
+.TP
+.B \-t\ <track>
+set track
+.TP
+.B \-c\ <comment>
+set comment (max. 28-30 characters)
+.TP
+.B \-z\ <genre>
+genre code <1-255> (see -l for the list of the available genres)
+.TP
+.B \-l
+prints the list of the genres
+.TP
+.B \-w
+write changes to disk (without this option the options above don't have any effect)
+.SH AUTHORS
+mp3meta is written by Alex Kozadaev <akozadaev at yahoo.com>

@@ -15,7 +15,7 @@
 #define ID3VER(a)         ((a)->comment[ZR] == 0) ? 1.1f : 1.0f
 #define ID3TXTGENRE(a)    ((a)->genre >= 0 && ((a)->genre <= 125)) ?\
                               genre[(int)(a)->genre] : "Unknown"
-#define GETTAG(d, s)      memcpy((d), (s), sizeof(s))
+#define GETTAG(d, s)      (char*)memcpy((d), (s), sizeof(s))
 #define SETTAG(d, s)      if (s) {\
                               size_t sz = strlen(s);\
                               memset((d), 0, sizeof(d));\
