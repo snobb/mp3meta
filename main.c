@@ -42,7 +42,7 @@ enum { WRITE = 0x01, HASFILE = 0x02 };  /* options flags */
 
 struct options {
     char flags;
-    char *fname;
+    char **fnames;
     char *title;
     char *artist;
     char *album;
@@ -93,35 +93,39 @@ char *genre[] = {
 int main(int argc, char **argv)
 {
     FILE *mp3fp;
+    char *fname;
     size_t offset = -ID3SZ;
-    struct options opts = { 0, NULL, NULL, NULL, NULL, NULL, NULL, -1, 257 };
+    struct options opts = { 0, NULL, NULL, NULL, NULL, NULL, NULL, -1, 256 };
     struct id3meta mp3meta;
 
     if (argc == 1)
         usage(argv[0]);
     read_args(argc, argv, &opts);
 
-    if (!(opts.flags & HASFILE))
-        die("arguments error - no file");
+    while ((fname = *opts.fnames++) != NULL) {
+        if (!(opts.flags & HASFILE))
+            die("arguments error - no file");
 
-    if ((mp3fp = fopen(opts.fname, "r+")) == NULL)
-        die("cannot open the file %s", opts.fname);
+        if ((mp3fp = fopen(fname, "r+")) == NULL)
+            die("cannot open the file %s", fname);
 
-    readbuf(mp3fp, &mp3meta, ID3SZ, -ID3SZ, SEEK_END);
-    if (opts.flags & WRITE && opts.flags & HASFILE) {
-        if (strncmp(mp3meta.header, "TAG", 3) != 0) {
-            memset(&mp3meta, 0, sizeof(mp3meta));
-            memcpy(mp3meta.header, "TAG", 3);
-            fseek(mp3fp, 0, SEEK_END);
-            fwrite("\0", 2, 1, mp3fp);
-            offset = 0;
+        readbuf(mp3fp, &mp3meta, ID3SZ, -ID3SZ, SEEK_END);
+        if (opts.flags & WRITE && opts.flags & HASFILE) {
+            if (strncmp(mp3meta.header, "TAG", 3) != 0) {
+                memset(&mp3meta, 0, sizeof(mp3meta));
+                memcpy(mp3meta.header, "TAG", 3);
+                fseek(mp3fp, 0, SEEK_END);
+                fwrite("\0", 2, 1, mp3fp);
+                offset = 0;
+            }
+            updatebuf(&mp3meta, &opts);
+            writebuf(mp3fp, &mp3meta, ID3SZ, offset, SEEK_END);
         }
-        updatebuf(&mp3meta, &opts);
-        writebuf(mp3fp, &mp3meta, ID3SZ, offset, SEEK_END);
-    }
-    fclose(mp3fp);
+        fclose(mp3fp);
 
-    printid3v1(opts.fname, &mp3meta);
+        printid3v1(fname, &mp3meta);
+        puts("");
+    }
 
     return 0;
 }
@@ -157,7 +161,8 @@ void read_args(int argc, char **argv, struct options *opts)
             }
         } else {
             opts->flags |= HASFILE;
-            opts->fname = arg;
+            opts->fnames = argv;
+            break;
         }
     }
 }
@@ -198,18 +203,17 @@ void updatebuf(struct id3meta *mp3meta, const struct options *opts)
         mp3meta->comment[ZR] = 0;
         mp3meta->comment[TR] = track;
     }
-
-    if (opts->genre <= 0xff) {
-        mp3meta->genre = opts->genre;
-    }
+    mp3meta->genre = opts->genre;
 }
 
 /* ========================================================================= */
 void printid3v1(const char *name, const struct id3meta *mp3meta)
 {
     char str[31] = { 0 };
-    if (strncmp(mp3meta->header, "TAG", 3) != 0)
-        die("id3v1 tag isn't found");
+    if (strncmp(mp3meta->header, "TAG", 3) != 0) {
+        printf("warn: id3v1 tag isn't found");
+        return;
+    }
 
     printf("file: %s (id3 version: %1.1f)\n", name, ID3VER(mp3meta));
     printf("title: %s\n", GETTAG(str, mp3meta->title));
