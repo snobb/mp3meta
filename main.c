@@ -9,6 +9,7 @@
 #include <ctype.h>
 
 /* ========================================================================= */
+#define VERSION           "0.02"
 #define ZR                28
 #define TR                29
 
@@ -156,6 +157,7 @@ void read_args(int argc, char **argv, struct options *opts)
                 case 't': GETINT(opts->track); break;
                 case 'c': GETSTR(opts->comment); break;
                 case 'g': GETINT(opts->genre); break;
+                case 'v': puts("mp3meta v"VERSION); exit(0);
                 default: die("error: unrecognized option \"-%c\"",
                              *arg);
             }

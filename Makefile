@@ -11,6 +11,8 @@ INSTALL_DIR = ${DESTDIR}/bin
 MANDIR = ${DESTDIR}/man/man1
 MAN_INSTALL_ARGS = -o root -g wheel -m 644
 
+VERSION =`awk '{if ($$2 == "VERSION") print $$3}' main.c | awk -F '"' '{print $$2}'`
+
 ifeq (${CC}, $(filter ${CC}, cc clang gcc))
         CFLAGS += -std=c99 -pedantic
 endif
@@ -42,7 +44,9 @@ ${TARGET}: build_host.h ${OBJ}
 install: release
 	${INSTALL} ${INSTALL_ARGS} ${TARGET} ${INSTALL_DIR}
 	mkdir -p ${MANDIR}
-	${INSTALL} ${MAN_INSTALL_ARGS} mp3meta.1 ${MANDIR}
+	@echo "Installing man page"
+	@sed s/VERSION/${VERSION}/ < mp3meta.1 > ${MANDIR}/mp3meta.1
+	chmod 644 ${MANDIR}/mp3meta.1
 	@echo "DONE"
 
 uninstall:
