@@ -1,7 +1,7 @@
 TARGET = mp3meta
 SRC = ${wildcard *.c}
 OBJ = ${SRC:.c=.o}
-CC = cc
+CC = clang
 CFLAGS = -Wall
 LFLAGS =
 DESTDIR = /usr/local

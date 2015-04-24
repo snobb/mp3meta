@@ -6,10 +6,11 @@
 #include <string.h>
 #include <stdarg.h>
 #include <stdbool.h>
+#include <unistd.h>
+#include <getopt.h>
 #include <ctype.h>
 
-/* ========================================================================= */
-#define VERSION           "0.02"
+#define VERSION           "0.03"
 #define ZR                28
 #define TR                29
 
@@ -22,11 +23,6 @@
                               memset((d), 0, sizeof(d));\
                               memcpy((d), (s), sizeof(d) > (sz) ?\
                               (sz) : sizeof(d));}
-#define GETINT(a)         if (*++argv && isdigit(**argv)) {\
-                                    (a) = atoi(*argv); }\
-                                    else { die("integer expected"); }
-#define GETSTR(a)         if (*++argv) { (a) = *argv; }\
-                                    else { die("value expected"); }
 #define ID3SZ             128
 
 struct id3meta {
@@ -89,8 +85,6 @@ char *genre[] = {
     "A capella", "Euro-House", "Dance Hall", NULL
 };
 
-
-/* ========================================================================= */
 int main(int argc, char **argv)
 {
     FILE *mp3fp;
@@ -111,7 +105,7 @@ int main(int argc, char **argv)
             die("cannot open the file %s", fname);
 
         readbuf(mp3fp, &mp3meta, ID3SZ, -ID3SZ, SEEK_END);
-        if (opts.flags & WRITE && opts.flags & HASFILE) {
+        if (opts.flags & HASFILE) {
             if (strncmp(mp3meta.header, "TAG", 3) != 0) {
                 memset(&mp3meta, 0, sizeof(mp3meta));
                 memcpy(mp3meta.header, "TAG", 3);
@@ -120,7 +114,9 @@ int main(int argc, char **argv)
                 offset = 0;
             }
             updatebuf(&mp3meta, &opts);
-            writebuf(mp3fp, &mp3meta, ID3SZ, offset, SEEK_END);
+            if (opts.flags & WRITE) {
+                writebuf(mp3fp, &mp3meta, ID3SZ, offset, SEEK_END);
+            }
         }
         fclose(mp3fp);
 
@@ -131,45 +127,65 @@ int main(int argc, char **argv)
     return 0;
 }
 
-/* ========================================================================= */
 void read_args(int argc, char **argv, struct options *opts)
 {
-    char *arg, **list, *prog = *argv;
+    char **list, *prog = *argv;
+    long val;
+    int ch;
 
-    if (--argc == 0)
-        usage(prog);
+    opts->flags = 0;
+    while ((ch = getopt(argc, argv, "hlwT:a:b:y:t:c:g:v")) != -1) {
+        switch (ch) {
+        case 'h': usage(prog); break;
+        case 'l': list = genre;
+                  for (int i = 0; *list != NULL; i++)
+                      printf("%d: %s\n", i, *list++);
+                  exit(0);
+                  break;
 
-    while (*++argv != NULL) {
-        arg = *argv;
-        if (*arg == '-') {
-            switch(*++arg) {
-                case 'h': usage(prog); break;
-                case 'l': list = genre;
-                          for (int i = 0; *list != NULL; i++)
-                              printf("%d: %s\n", i, *list++);
-                          exit(0);
-                          break;
-                case 'w': opts->flags |= WRITE; break;
-                case 'T': GETSTR(opts->title); break;
-                case 'a': GETSTR(opts->artist); break;
-                case 'b': GETSTR(opts->album); break;
-                case 'y': GETSTR(opts->year); break;
-                case 't': GETINT(opts->track); break;
-                case 'c': GETSTR(opts->comment); break;
-                case 'g': GETINT(opts->genre); break;
-                case 'v': puts("mp3meta v"VERSION); exit(0);
-                default: die("error: unrecognized option \"-%c\"",
-                             *arg);
-            }
-        } else {
-            opts->flags |= HASFILE;
-            opts->fnames = argv;
-            break;
+        case 'w': opts->flags |= WRITE; break;
+
+        case 'T': opts->title = optarg; break;
+
+        case 'a': opts->artist = optarg; break;
+
+        case 'b': opts->album = optarg; break;
+
+        case 'y': opts->year = optarg; break;
+
+        case 'c': opts->comment = optarg; break;
+
+        case 'v': puts("mp3meta v"VERSION); exit(0);
+
+        case 't': val = strtol(optarg, NULL, 10);
+                  if (val >= 0) {
+                      opts->track = val;
+                  } else {
+                      die("invalid track");
+                  }
+                  break;
+
+        case 'g': val = strtol(optarg, NULL, 10);
+                  if (val >= 0 && val <= 255) {
+                      opts->genre = val;
+                  } else {
+                      die("invalid genre");
+                  }
+                  break;
+
+        default: die("error: unrecognized option \"-%c\"", ch);
         }
     }
+
+    argc -= optind;
+    argv += optind;
+
+    if (argc > 0) {
+        opts->flags |= HASFILE;
+    }
+    opts->fnames = argv;
 }
 
-/* ========================================================================= */
 void *readbuf(FILE *fp, void *buf, size_t sz, long offset, int start)
 {
     fseek(fp, offset, start);
@@ -180,7 +196,6 @@ void *readbuf(FILE *fp, void *buf, size_t sz, long offset, int start)
     return buf;
 }
 
-/* ========================================================================= */
 void writebuf(FILE *fp, const void *buf, size_t sz, long offset, int start)
 {
     fseek(fp, offset, start);
@@ -188,7 +203,6 @@ void writebuf(FILE *fp, const void *buf, size_t sz, long offset, int start)
         die("cannot write data");
 }
 
-/* ========================================================================= */
 void updatebuf(struct id3meta *mp3meta, const struct options *opts)
 {
     int track = mp3meta->comment[TR];
@@ -208,7 +222,6 @@ void updatebuf(struct id3meta *mp3meta, const struct options *opts)
     mp3meta->genre = opts->genre;
 }
 
-/* ========================================================================= */
 void printid3v1(const char *name, const struct id3meta *mp3meta)
 {
     char str[31] = { 0 };
@@ -233,7 +246,6 @@ void printid3v1(const char *name, const struct id3meta *mp3meta)
     printf("genre: %s(%u)\n", ID3TXTGENRE(mp3meta), mp3meta->genre);
 }
 
-/* ========================================================================= */
 void die(const char *fmt, ...)
 {
     va_list ap;
@@ -245,7 +257,6 @@ void die(const char *fmt, ...)
     exit(1);
 }
 
-/* ========================================================================= */
 void usage(const char *prog)
 {
     printf("Usage: %s [options] <mp3 file>\n", prog);
